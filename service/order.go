@@ -72,6 +72,7 @@ func (s *orderService) CreateOrder(ctx context.Context, req *order_service.Creat
 	return res, nil
 }
 
+
 func (s *orderService) GetOrderList(ctx context.Context, req *order_service.GetOrderListRequest) (*order_service.GetOrderListResponse, error) {
 	s.log.Info("---GetOrderList--->", logger.Any("req", req))
 	res, err := s.storage.Order().GetOrderList(req)
@@ -84,12 +85,37 @@ func (s *orderService) GetOrderList(ctx context.Context, req *order_service.GetO
 }
 
 func (s *orderService) GetOrderById(ctx context.Context, req *order_service.GetOrderByIdRequest) (*order_service.GetOrderByIdResponse, error) {
+	res:=&order_service.GetOrderByIdResponse{
+		Order: &order_service.Order{},
+		Items: make([]*order_service.GetOrderByIdResponse_Items, 0),
+	}
 	s.log.Info("---GetOrderById--->", logger.Any("req", req))
-	res, err := s.storage.Order().GetOrderById(req.Id)
+	i, err := s.storage.Order().GetOrderById(req.Id)
 	if err != nil {
 		s.log.Error("!!!GetOrderById--->", logger.Error(err))
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
-
+	for _,v:=range i.Orderitems{
+		product, err := s.services.ProductService().GetProductById(ctx, &product_service.GetProductByIdRequest{
+			Id: v.ProductId,
+		})
+	
+		if err != nil {
+			s.log.Error("!!!GetOrderById--->", logger.Error(err))
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+		res.Items=append(res.Items, &order_service.GetOrderByIdResponse_Items{
+			Product: &order_service.GetOrderByIdResponse_Items_Product{
+				Id: product.Id,
+				Title: product.Title,
+				Desc: product.Desc,
+				Quantity: product.Quantity,
+				Price: product.Price,
+				CategoryId: product.Category.Id,
+			},
+			Quantity: v.Quantity,
+		})
+	}
+	res.Order=i.Order
 	return res, nil
 }

@@ -90,8 +90,9 @@ func (r *orderRepo) GetOrderList(req *order_service.GetOrderListRequest) (*order
 	return res, nil
 }
 
-func (r *orderRepo) GetOrderById(id string) (*order_service.GetOrderByIdResponse, error) {
-	res:=order_service.GetOrderByIdResponse{
+func (r *orderRepo) GetOrderById(id string) (*order_service.OrderInfo, error) {
+	res:=order_service.OrderInfo{
+		Order: &order_service.Order{},
 		Orderitems: make([]*order_service.OrderItem, 0),
 	}
 	query := `
@@ -107,11 +108,11 @@ func (r *orderRepo) GetOrderById(id string) (*order_service.GetOrderByIdResponse
 					id = $1`
 	row := r.db.QueryRow(query, id)
 	err := row.Scan(
-		&res.Id,
-		&res.CustomerName,
-		&res.CustomerAddress,
-		&res.CustomerPhone,
-		&res.TotalPrice,
+		&res.Order.Id,
+		&res.Order.CustomerName,
+		&res.Order.CustomerAddress,
+		&res.Order.CustomerPhone,
+		&res.Order.TotalPrice,
 	)
 	if err != nil {
 		return nil, err
