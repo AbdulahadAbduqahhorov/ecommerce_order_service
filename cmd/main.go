@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/AbdulahadAbduqahhorov/gRPC/Ecommerce/order_service/client"
 	"github.com/AbdulahadAbduqahhorov/gRPC/Ecommerce/order_service/config"
 	"github.com/AbdulahadAbduqahhorov/gRPC/Ecommerce/order_service/genproto/order_service"
 	"github.com/AbdulahadAbduqahhorov/gRPC/Ecommerce/order_service/pkg/logger"
 	"github.com/AbdulahadAbduqahhorov/gRPC/Ecommerce/order_service/service"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
+
 	"google.golang.org/grpc"
 )
 
@@ -35,8 +37,13 @@ func main() {
 	if err != nil {
 		log.Panic("net.Listen", logger.Error(err))
 	}
+	srvc,err:=client.NewGrpcClients(cfg)
+	if err!=nil{
+		log.Panic("client.NewGrpcClients()", logger.Error(err))
 
-	orderService := service.NewOrderService(log,db)
+	}
+
+	orderService := service.NewOrderService(log,db,srvc)
 	s := grpc.NewServer()
 	order_service.RegisterOrderServiceServer(s, orderService)
 	

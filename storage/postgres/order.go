@@ -15,16 +15,17 @@ func NewOrderRepo(db *sqlx.DB) repo.OrderRepoI {
 	return &orderRepo{db: db}
 }
 
-func (r *orderRepo) CreateOrder(id string, req *order_service.CreateOrderRequest) (*order_service.CreateOrderResponse, error) {
+func (r *orderRepo) CreateOrder(id string,total_price int, req *order_service.CreateOrderRequest) (*order_service.CreateOrderResponse, error) {
 	query := `INSERT INTO "order" (
 				id,
 				customer_name,
 				customer_address,
-				customer_phone
+				customer_phone,
+				total_price
 			) 
-			VALUES ($1, $2, $3, $4) `
+			VALUES ($1, $2, $3, $4,$5) `
 
-	_, err := r.db.Exec(query, id, req.CustomerName, req.CustomerAddress, req.CustomerPhone)
+	_, err := r.db.Exec(query, id, req.CustomerName, req.CustomerAddress, req.CustomerPhone,total_price)
 
 	if err != nil {
 		return nil, err
@@ -60,7 +61,8 @@ func (r *orderRepo) GetOrderList(req *order_service.GetOrderListRequest) (*order
 		id,
 		customer_name,
 		customer_address,
-		customer_phone
+		customer_phone,
+		total_price
 	FROM "order"
 	LIMIT $1
 	OFFSET $2`
@@ -76,6 +78,7 @@ func (r *orderRepo) GetOrderList(req *order_service.GetOrderListRequest) (*order
 			&order.CustomerName,
 			&order.CustomerAddress,
 			&order.CustomerPhone,
+			&order.TotalPrice,
 		)
 
 		if err != nil {
@@ -96,7 +99,8 @@ func (r *orderRepo) GetOrderById(id string) (*order_service.GetOrderByIdResponse
 					id,
 					customer_name,
 					customer_address,
-					customer_phone
+					customer_phone,
+					total_price
 				FROM
 					"order"
 				WHERE
@@ -107,6 +111,7 @@ func (r *orderRepo) GetOrderById(id string) (*order_service.GetOrderByIdResponse
 		&res.CustomerName,
 		&res.CustomerAddress,
 		&res.CustomerPhone,
+		&res.TotalPrice,
 	)
 	if err != nil {
 		return nil, err
