@@ -90,7 +90,7 @@ func (s *orderService) GetOrderById(ctx context.Context, req *order_service.GetO
 		Items: make([]*order_service.GetOrderByIdResponse_Items, 0),
 	}
 	s.log.Info("---GetOrderById--->", logger.Any("req", req))
-	i, err := s.storage.Order().GetOrderById(req.Id)
+	i, err := s.storage.Order().GetOrderById(req)
 	if err != nil {
 		s.log.Error("!!!GetOrderById--->", logger.Error(err))
 		return nil, status.Error(codes.NotFound, err.Error())

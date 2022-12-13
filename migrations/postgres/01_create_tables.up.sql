@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS "order" (
 	"id" CHAR(36) PRIMARY KEY,
+	"user_id" CHAR(36)  NOT NULL,
 	"customer_name" VARCHAR(255) NOT NULL,
 	"customer_address" VARCHAR(255) NOT NULL ,
 	"customer_phone"   VARCHAR NOT NULL,

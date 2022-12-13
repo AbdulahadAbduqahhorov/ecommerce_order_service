@@ -1,6 +1,9 @@
 package postgres
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/AbdulahadAbduqahhorov/gRPC/Ecommerce/order_service/genproto/order_service"
 	"github.com/AbdulahadAbduqahhorov/gRPC/Ecommerce/order_service/storage/repo"
 	"github.com/google/uuid"
@@ -15,17 +18,18 @@ func NewOrderRepo(db *sqlx.DB) repo.OrderRepoI {
 	return &orderRepo{db: db}
 }
 
-func (r *orderRepo) CreateOrder(id string,total_price int, req *order_service.CreateOrderRequest) (*order_service.CreateOrderResponse, error) {
+func (r *orderRepo) CreateOrder(id string, total_price int, req *order_service.CreateOrderRequest) (*order_service.CreateOrderResponse, error) {
 	query := `INSERT INTO "order" (
 				id,
+				user_id,
 				customer_name,
 				customer_address,
 				customer_phone,
 				total_price
 			) 
-			VALUES ($1, $2, $3, $4,$5) `
+			VALUES ($1, $2, $3, $4,$5,$6) `
 
-	_, err := r.db.Exec(query, id, req.CustomerName, req.CustomerAddress, req.CustomerPhone,total_price)
+	_, err := r.db.Exec(query, id, req.UserId, req.CustomerName, req.CustomerAddress, req.CustomerPhone, total_price)
 
 	if err != nil {
 		return nil, err
@@ -57,17 +61,49 @@ func (r *orderRepo) GetOrderList(req *order_service.GetOrderListRequest) (*order
 	res := &order_service.GetOrderListResponse{
 		Orders: make([]*order_service.Order, 0),
 	}
+	setValues := make([]string, 0)
+	args := make([]interface{}, 0)
+	argId := 1
+
+	if len(req.UserId) > 0 {
+		setValues = append(setValues, fmt.Sprintf("AND user_id=$%d", argId))
+		args = append(args, req.UserId)
+		argId++
+	}
+	if req.Search != "" {
+		setValues = append(setValues, fmt.Sprintf("AND (customer_name || customer_phone) ILIKE '%%' || $%d || '%%'", argId))
+		args = append(args, req.Search)
+		argId++
+	}
+	countQuery := `SELECT count(1) FROM "order"  WHERE true ` + strings.Join(setValues, " ")
+	err := r.db.QueryRow(countQuery, args...).Scan(
+		&res.Count,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if req.Limit > 0 {
+		setValues = append(setValues, fmt.Sprintf("limit $%d ", argId))
+		args = append(args, req.Limit)
+		argId++
+	}
+	if req.Offset >= 0 {
+		setValues = append(setValues, fmt.Sprintf("offset $%d ", argId))
+		args = append(args, req.Offset)
+		argId++
+	}
+	s := strings.Join(setValues, " ")
 	query := `SELECT 
 		id,
+		user_id,
 		customer_name,
 		customer_address,
 		customer_phone,
 		total_price
-	FROM "order"
-	LIMIT $1
-	OFFSET $2`
+	FROM "order" 
+	WHERE true `+s
 
-	rows, err := r.db.Queryx(query, int(req.Limit), int(req.Offset))
+	rows, err := r.db.Queryx(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -75,6 +111,7 @@ func (r *orderRepo) GetOrderList(req *order_service.GetOrderListRequest) (*order
 		var order order_service.Order
 		err = rows.Scan(
 			&order.Id,
+			&order.UserId,
 			&order.CustomerName,
 			&order.CustomerAddress,
 			&order.CustomerPhone,
@@ -90,11 +127,19 @@ func (r *orderRepo) GetOrderList(req *order_service.GetOrderListRequest) (*order
 	return res, nil
 }
 
-func (r *orderRepo) GetOrderById(id string) (*order_service.OrderInfo, error) {
-	res:=order_service.OrderInfo{
-		Order: &order_service.Order{},
+func (r *orderRepo) GetOrderById(req *order_service.GetOrderByIdRequest) (*order_service.OrderInfo, error) {
+	res := order_service.OrderInfo{
+		Order:      &order_service.Order{},
 		Orderitems: make([]*order_service.OrderItem, 0),
 	}
+	var filter string
+	args:=make([]interface{},0)
+	args=append(args, req.Id)
+	if len(req.UserId)>0{
+		filter="AND user_id=$2"
+		args=append(args,req.UserId)
+	}
+	
 	query := `
 				SELECT
 					id,
@@ -105,10 +150,11 @@ func (r *orderRepo) GetOrderById(id string) (*order_service.OrderInfo, error) {
 				FROM
 					"order"
 				WHERE
-					id = $1`
-	row := r.db.QueryRow(query, id)
+					id = $1 `+filter
+	row := r.db.QueryRow(query, args...)
 	err := row.Scan(
 		&res.Order.Id,
+		&res.Order.UserId,
 		&res.Order.CustomerName,
 		&res.Order.CustomerAddress,
 		&res.Order.CustomerPhone,
@@ -131,9 +177,9 @@ func (r *orderRepo) GetOrderById(id string) (*order_service.OrderInfo, error) {
 				WHERE
 					p.order_id = $1`
 
-	rows, err:= r.db.Query(queryOrderItems, id)
-	if err!=nil{
-		return nil,err
+	rows, err := r.db.Query(queryOrderItems, req.Id)
+	if err != nil {
+		return nil, err
 	}
 	for rows.Next() {
 		var item order_service.OrderItem
@@ -145,7 +191,7 @@ func (r *orderRepo) GetOrderById(id string) (*order_service.OrderInfo, error) {
 		if err != nil {
 			return nil, err
 		}
-		res.Orderitems=append(res.Orderitems, &item)
+		res.Orderitems = append(res.Orderitems, &item)
 	}
 
 	return &res, nil
