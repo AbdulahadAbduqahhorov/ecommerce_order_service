@@ -143,6 +143,7 @@ func (r *orderRepo) GetOrderById(req *order_service.GetOrderByIdRequest) (*order
 	query := `
 				SELECT
 					id,
+					user_id,
 					customer_name,
 					customer_address,
 					customer_phone,
